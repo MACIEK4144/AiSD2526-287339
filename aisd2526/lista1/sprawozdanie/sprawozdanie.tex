@@ -1,0 +1,194 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepackage{booktabs} 
+\usepackage{caption} 
+\usepackage{float} 
+\usepackage{enumitem} 
+
+% Ustawienia geometrii strony
+\geometry{
+ a4paper,
+ margin=2.5cm,
+}
+
+% Ustawienia listings
+\lstset{
+  language=C++,
+  basicstyle=\small\ttfamily,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  frame=single,
+  breaklines=true,
+  captionpos=b,
+  showstringspaces=false,
+  extendedchars=true,
+  inputencoding=utf8,
+  columns=fixed,
+  basicstyle=\ttfamily\footnotesize, 
+  breakatwhitespace=true, 
+  tabsize=2
+}
+
+\title{\textbf{\Large Sprawozdanie z Listy 1}}
+\author{Maciej Pluta \\ 287339}
+\date{} 
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\vspace*{-1.5cm} 
+
+\section{Wprowadzenie} 
+
+Celem mojej pracy było przetestowanie trzech klasycznych algorytmów sortowania: \texttt{Insertion Sort}, \texttt{Merge Sort} oraz \texttt{Heap Sort}, wraz z ich zmodyfikowanymi wersjami (wstawianie podwójne, dzielenie na trzy, kopiec ternarny). Najważniejszym zadaniem było dodanie liczników, które zliczałyby dokładnie to, co jest kluczowe w algorytmach: porównania oraz przypisania. Dzięki tym danym mogłem sprawdzić, czy wprowadzone przeze mnie modyfikacje faktycznie poprawiły wydajność sortowania.
+
+\section{Implementacja i Kluczowe Fragmenty Kodu}
+
+Wszystkie algorytmy zostały zaimplementowane jako osobne funkcje, a liczniki operacji były zerowane przed każdym testem w pliku main.cpp. Poniżej przedstawiam kluczowe fragmenty kodu modyfikacji, które pokazują, w którym miejscu zliczamy operacje.
+
+\subsection{Insertion Sort: Wstawianie podwójne (\texttt{insertionSortDouble})}
+Jest to modyfikacja algorytmu sortowania przez wstawianie. W tej wersji w pętli głównej while sortujemy dwa elementy naraz. Zysk na wydajności wynika z drastycznego zmniejszenia kosztownych przypisań. Poniższy fragment kodu z pliku \texttt{insertion\_sort.cpp} pokazuje kluczowy moment wstawiania dwóch elementów do już posortowanej części tablicy.
+
+\begin{figure}[H]
+\centering
+\begin{lstlisting}[caption={Wstawianie podwójne: fragment kluczowego bloku wstawiania}, label=lst:ISD]
+        c.comparisons++;
+        if(arr[i] > arr[i+1]) { swap(arr[i], arr[i+1]); c.assignments += 3; }
+        int key1 = arr[i], key2 = arr[i+1]; c.assignments += 2;
+        int j = i - 1;
+        while(j >= 0 && arr[j] > key2) { c.comparisons++; arr[j+2] = arr[j]; c.assignments++; j--; }
+        if(j>=0) c.comparisons++;
+        arr[j+1] = key1; arr[j+2] = key2; c.assignments += 2;
+\end{lstlisting}
+\end{figure}
+
+\subsection{Merge Sort: Dzielenie na trzy części (\texttt{merge3})}
+W standardowym \texttt{Merge Sort} tablica jest dzielona na dwie połowy. Tutaj dzielimy ją na trzy części($\log_3 N$ zamiast $\log_2 N$). Kosztem tej modyfikacji jest to, że w procedurze scalania (\texttt{merge3}) musimy wykonać więcej porównań, aby znaleźć najmniejszy element spośród trzech grup. Poniższy fragment pokazuje rdzeń pętli scalającej.
+
+\begin{figure}[H]
+\centering
+\begin{lstlisting}[caption={Merge Sort 3: fragment pętli scalania trzech podtablic}, label=lst:MS3]
+while(i<=mid1 || j<=mid2 || k<=right){
+    int val = INT_MAX;
+    if(i<=mid1) val = arr[i];
+    
+    if(j<=mid2 && arr[j]<val){ val = arr[j]; c.comparisons++; } else if(j<=mid2) c.comparisons++;
+    if(k<=right && arr[k]<val){ val = arr[k]; c.comparisons++; } else if(k<=right) c.comparisons++;
+
+    temp.push_back(val); c.assignments++;
+}
+\end{lstlisting}
+\end{figure}
+
+\subsection{Heap Sort: Kopiec Ternarny (\texttt{heapSortTernarny})}
+Zwykły \texttt{Heap Sort} używa kopca binarnego. My używamy kopca ternarnego (podstawa 3), co prowadzi do mniejszej wysokości kopca i krótszej drogi, jaką elementy muszą pokonać w dół w funkcji \texttt{heapify}. Ten zysk musi zrównoważyć koszt trzech porównań (zamiast dwóch) w każdym kroku. Poniższy kod jest całym ciągłym fragmentem funkcji \texttt{heapifyTernary} z pliku \texttt{heap\_sort.cpp}.
+
+\begin{figure}[H]
+\centering
+\begin{lstlisting}[caption={Heap Sort Ternarny: funkcja heapifyTernary}, label=lst:HS3]
+void heapifyTernary(vector<int>& arr,int n,int i,Counter& c){
+    int largest=i,l=3*i+1,m=3*i+2,r=3*i+3;
+    if(l<n){ c.comparisons++; if(arr[l]>arr[largest]) largest=l; }
+    if(m<n){ c.comparisons++; if(arr[m]>arr[largest]) largest=m; }
+    if(r<n){ c.comparisons++; if(arr[r]>arr[largest]) largest=r; }
+    if(largest!=i){ swap(arr[i],arr[largest]); c.assignments+=3; heapifyTernary(arr,n,largest,c); }
+}
+\end{lstlisting}
+\end{figure}
+
+\section{Porównanie Działania Algorytmów}
+
+\subsection{Procedura Testowa}
+Dane do analizy zostały wygenerowane i zebrane w pliku \texttt{main.cpp}. Przeprowadziłem testy na losowo generowanych tablicach o trzech rozmiarach: $N=100$, $N=500$ i $N=1000$. Dla każdego algorytmu i każdego rozmiaru, licznik operacji był zerowany przed sortowaniem, aby upewnić się, że dane są rzetelne.
+
+\subsection{Tabela Wyników Operacji Elementarnych}
+
+Poniższa tabela przedstawia dokładne wyniki liczby porównań i przypisań dla każdego z sześciu algorytmów. Modyfikacje zostały wyszczególnione dla każdego rozmiaru $N$.
+
+\begin{table}[H]
+    \centering
+    \caption{Liczba Operacji Elementarnych (Porównania i Przypisania) dla Różnych Rozmiarów Tablicy}
+    \label{tab:wyniki_pelna}
+    \begin{tabular}{l c c c c c c}
+        \toprule
+        \textbf{Algorytm} & \multicolumn{2}{c}{\textbf{N=100}} & \multicolumn{2}{c}{\textbf{N=500}} & \multicolumn{2}{c}{\textbf{N=1000}} \\
+        \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+        & Porównania & Przypisania & Porównania & Przypisania & Porównania & Przypisania \\
+        \midrule
+        IS & 2431 & 2536 & 64174 & 64680 & 266487 & 267493 \\
+        IS Podwójny & 354 & 525 & 1921 & 2779 & 4569 & 6330 \\
+        \midrule
+        MS & 533 & 1344 & 3866 & 8976 & 8711 & 19952 \\
+        MS 3 & 714 & 976 & 5042 & 5900 & 11243 & 13528 \\
+        \midrule
+        HS & 1036 & 1755 & 7432 & 12150 & 16855 & 27186 \\
+        HS Ternarny & 1016 & 1251 & 7287 & 8511 & 16402 & 18711 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Wykres Porównawczy Skalowania Algorytmów}
+
+Wykres przedstawia, jak całkowita liczba operacji (Suma Porównań i Przypisań) rośnie w zależności od rozmiaru tablicy $N$. Modyfikacje \texttt{Merge Sort} i \texttt{Heap Sort} (MS3 i HS3) wykazują wyraźnie lepsze skalowanie niż ich wersje bazowe. 
+
+\begin{figure}[H]
+    \centering
+    \caption{Suma Operacji Elementarnych w Funkcji Rozmiaru $N$}
+    \label{fig:wykres_n_log_n}
+    \begin{tikzpicture}
+    \begin{axis}[
+        xlabel={Rozmiar Tablicy (N)},
+        ylabel={Suma Operacji},
+        xmin=0, xmax=1000,
+        ymin=0, ymax=45000,
+        xtick={100, 500, 1000},
+        ytick distance=10000,
+        legend style={at={(0.5,-0.25)}, anchor=north, legend columns=2, font=\small}, 
+        grid style={dashed, gray!50},
+        height=7cm, 
+        width=0.9\textwidth, 
+        grid=both,
+        xticklabel style={font=\footnotesize} 
+    ]
+
+    \addplot[mark=*, blue] coordinates { (100, 1877) (500, 12842) (1000, 28663) };
+    \addlegendentry{Merge Sort (MS)}
+
+    \addplot[mark=square*, teal] coordinates { (100, 1690) (500, 10942) (1000, 24771) };
+    \addlegendentry{Merge Sort 3 (MS3)}
+
+    \addplot[mark=o, red] coordinates { (100, 2791) (500, 19582) (1000, 44041) };
+    \addlegendentry{Heap Sort (HS)}
+
+    \addplot[mark=triangle*, orange] coordinates { (100, 2267) (500, 15798) (1000, 35113) };
+    \addlegendentry{Heap Sort Ternarny (HS3)}
+
+    \end{axis}
+    \end{tikzpicture}
+\end{figure}
+
+\section{Wnioski Końcowe}
+\vspace*{-0.5em} 
+
+Analiza zebranych danych potwierdza, że wszystkie wprowadzone modyfikacje były opłacalne.
+
+\begin{itemize}
+    \item Insertion Sort Double (ISD): Przyniosło największy zysk, któy wynika z drastycznego zmniejszenia liczby przypisań (przesunięć), które są głównym kosztem Insertion Sort.
+    
+    \item Merge Sort 3 (MS3): Lepszy niż bazowy MS. Zyskaliśmy na tym, że drzewo rekursji było płytsze ($\log_3 N$ zamiast $\log_2 N$). Mimo dodatkowych porównań, mniejsza liczba kroków rekurencyjnych zaoszczędziła więcej operacji ogółem.
+    
+    \item Heap Sort Ternarny (HS3): Okazał się wydajniejszy od Heap Sort (HS). Mniejsza wysokość kopca ternarnego była opłacalna i przewyższyła koszt dodatkowego porównania w procedurze \texttt{heapify}.
+\end{itemize}
+
+\end{document}
