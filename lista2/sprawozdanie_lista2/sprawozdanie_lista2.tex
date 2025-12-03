@@ -1,0 +1,341 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[polish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{pgfplots}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{fancyvrb}
+\usepackage{mdframed}
+\usepackage{enumitem}
+\usepackage{caption}
+
+\geometry{a4paper, margin=2cm}
+\pgfplotsset{compat=1.18}
+\setlength{\parindent}{0pt}
+\captionsetup[figure]{skip=5pt}
+
+\newmdenv[
+  backgroundcolor=gray!5,
+  linecolor=black,
+  linewidth=0.5pt,
+  innerleftmargin=8pt,
+  innerrightmargin=8pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=10pt,
+  skipbelow=10pt
+]{codebox}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Analiza algorytmów sortowania}}\\[0.3cm]
+{\large Maciej Pluta, 287339}\\[0.8cm]
+\end{center}
+
+\section*{1. Wprowadzenie}
+
+Projekt obejmował implementację i testowanie pięciu algorytmów sortowania. Każdy algorytm testowano na losowych liczbach całkowitych z zakresu od -10000 do 10000, w rozmiarach od 1000 do 100000 elementów. Mierzono liczbę porównań, przypisań oraz czas wykonania.
+
+Algorytmy:
+\begin{itemize}[itemsep=0.1em]
+\item QuickSort (wersja klasyczna)
+\item QuickSort Dual-Pivot (z dwoma pivotami)
+\item Radix Sort (dla podstaw 10 i 256)
+\item Bucket Sort
+\item Insertion Sort na liście
+\end{itemize}
+
+\section*{2. Kluczowe fragmenty implementacji}
+
+\subsection*{2.1 QuickSort Dual-Pivot - podział}
+
+\begin{codebox}
+\begin{Verbatim}[fontsize=\small]
+if(arr[low]>arr[high]) swap_arr(arr,low,high);
+int p1=arr[low], p2=arr[high];
+int l=low+1, g=high-1, k=l;
+
+while(k<=g){
+    if(arr[k]<p1){
+        swap_arr(arr,k,l); l++;
+    }else if(arr[k]>p2){
+        swap_arr(arr,k,g); g--; k--;
+    }
+    k++;
+}
+swap_arr(arr,low,l-1);
+swap_arr(arr,high,g+1);
+\end{Verbatim}
+\end{codebox}
+
+\textbf{Co robi:} Używa dwóch pivotów dzieląc tablicę na trzy części. Najpierw ustawia pivoty w dobrej kolejności. Następnie przechodzi tablicę przesuwając elementy mniejsze od pierwszego pivota na lewo, większe od drugiego na prawo. Na końcu pivoty trafiają na swoje końcowe pozycje.
+
+\subsection*{2.2 Radix Sort - przesunięcie dla ujemnych}
+
+\begin{codebox}
+\begin{Verbatim}[fontsize=\small]
+int min_val = find_min(arr, size);
+int shift = (min_val < 0) ? -min_val : 0;
+int* shifted = new int[size];
+
+for (int i = 0; i < size; i++) 
+    shifted[i] = arr[i] + shift;
+
+int max_val = find_max(shifted, size);
+long long exp = 1;
+while (max_val / exp > 0) {
+    counting_sort_radix(shifted, size, exp, base);
+    exp *= base;
+}
+
+for (int i = 0; i < size; i++) 
+    arr[i] = shifted[i] - shift;
+
+delete[] shifted;
+\end{Verbatim}
+\end{codebox}
+
+\textbf{Co robi:} Przesuwa wszystkie liczby tak, aby minimalna była równa 0. Dzięki temu można sortować standardowym Radix Sortem, który nie działa z liczbami ujemnymi. Po sortowaniu przywraca oryginalne wartości.
+
+\subsection*{2.3 Bucket Sort - normalizacja}
+
+\begin{codebox}
+\begin{Verbatim}[fontsize=\small]
+int min_val=arr[0], max_val=arr[0];
+for(int i=1;i<size;i++){
+    if(arr[i]<min_val) min_val=arr[i];
+    if(arr[i]>max_val) max_val=arr[i];
+}
+
+long long range=(long long)max_val-min_val;
+if(range==0) range=1;
+
+for(int i=0;i<size;i++){
+    double norm=(double)(arr[i]-min_val)/range;
+    int idx=(int)(norm*num_buckets);
+    buckets[idx].push_back(arr[i]);
+}
+\end{Verbatim}
+\end{codebox}
+
+\textbf{Co robi:} Znajduje zakres danych i normalizuje każdą liczbę do przedziału [0,1]. Na podstawie znormalizowanej wartości przypisuje liczby do odpowiednich kubełków. Dzięki temu działa dla dowolnego zakresu danych.
+
+\subsection*{2.4 Insertion Sort na liście}
+
+\begin{codebox}
+\begin{Verbatim}[fontsize=\small]
+while(current!=nullptr){
+    Node* next_node=current->next;
+    Node* curr_sorted=sorted;
+    Node* prev_sorted=nullptr;
+    
+    while(curr_sorted!=nullptr && 
+          current->data>curr_sorted->data){
+        prev_sorted=curr_sorted;
+        curr_sorted=curr_sorted->next;
+    }
+    
+    if(prev_sorted==nullptr){
+        current->next=sorted; sorted=current;
+    }else{
+        current->next=prev_sorted->next;
+        prev_sorted->next=current;
+    }
+    current=next_node;
+}
+\end{Verbatim}
+\end{codebox}
+
+\textbf{Co robi:} Dla każdego elementu szuka miejsca w posortowanej części listy. Gdy znajdzie odpowiednie miejsce, modyfikuje wskaźniki aby wstawić element. Działa w miejscu bez dodatkowej tablicy.
+
+\section*{3. Wyniki testów}
+
+\subsection*{3.1 Szczegółowe wyniki dla największego testu (N=100000)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Algorytm} & \textbf{Porównania} & \textbf{Przypisania} & \textbf{Czas [s]} \\
+\midrule
+QuickSort Classic & 2,149,672 & 2,645,284 & 0.028 \\
+QuickSort Dual-Pivot & 3,537,325 & 2,404,296 & 0.029 \\
+Bucket Sort & 8,837,407 & 8,838,530 & 0.096 \\
+Radix Sort (podstawa 10) & 0 & 2,200,045 & 0.033 \\
+Radix Sort (podstawa 256) & 0 & 1,000,510 & 0.015 \\
+\bottomrule
+\end{tabular}
+\caption{Wyniki dla 100000 elementów. Radix Sort ma 0 porównań, ponieważ jest algorytmem nieporównującym.}
+\end{table}
+
+\textbf{Analiza tabeli:} QuickSort obu wersji ma zbliżone czasy wykonania, choć Dual-Pivot wykonuje więcej porównań. Bucket Sort okazał się najwolniejszy w tych testach, co wynika z nierównomiernego rozkładu danych losowych. Radix Sort z podstawą 256 jest wyraźnie szybszy niż z podstawą 10 i wykonuje mniej przypisań.
+
+\subsection*{3.2 Porównanie Radix Sort dla różnych podstaw}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Podstawa systemu} & \textbf{Przypisania} & \textbf{Czas [s]} & \textbf{Względna szybkość} \\
+\midrule
+10 & 2,200,045 & 0.033 & 1.00× \\
+256 & 1,000,510 & 0.015 & 2.20× \\
+\bottomrule
+\end{tabular}
+\caption{Wpływ podstawy systemu na wydajność Radix Sort. Większa podstawa oznacza mniej cyfr do przetworzenia.}
+\end{table}
+
+\textbf{Wyjaśnienie:} Radix Sort działa na cyfrach liczb. Dla podstawy 10, liczba 100000 ma 6 cyfr dziesiętnych, więc wymaga 6 iteracji. Dla podstawy 256, ta sama liczba ma tylko 3 cyfry (ponieważ $256^3 > 100000$), więc wymaga tylko 3 iteracji. To bezpośrednio przekłada się na wydajność - mniej iteracji to mniej operacji i krótszy czas wykonania.
+
+\section*{4. Wizualizacja wyników}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.95\textwidth,
+    height=6cm,
+    title={Liczba porównań w funkcji rozmiaru danych},
+    xlabel={Rozmiar danych [tysiące elementów]},
+    ylabel={Liczba porównań (skala logarytmiczna)},
+    xmin=0, xmax=110,
+    ymode=log,
+    grid=major,
+    grid style={dashed,gray!30},
+    legend pos=north west,
+    legend style={font=\footnotesize},
+    tick label style={font=\small},
+    title style={font=\large}
+]
+\addplot[blue,very thick,mark=*,mark size=2] coordinates {(1,13315)(5,80407)(10,165813)(20,360487)(50,1003091)(100,2149672)};
+\addplot[red,very thick,mark=square*,mark size=2] coordinates {(1,18778)(5,128132)(10,257149)(20,554599)(50,1531092)(100,3537325)};
+\addplot[green!60!black,very thick,mark=triangle*,mark size=2] coordinates {(1,12620)(5,115928)(10,308930)(20,847824)(50,3195777)(100,8837407)};
+\legend{QuickSort Classic, QuickSort Dual-Pivot, Bucket Sort}
+\end{axis}
+\end{tikzpicture}
+\caption{Wykres pokazuje jak liczba porównań rośnie z rozmiarem danych dla trzech algorytmów porównujących. QuickSort Dual-Pivot wykonuje najwięcej porównań, co wynika z jego dwupivotowej natury. Bucket Sort ma dużo porównań przy dużych N ze względu na insertion sort w kubełkach. Wszystkie krzywe pokazują wzrost zgodny z teoretyczną złożonością $O(n \log n)$ dla QuickSort i gorszy dla Bucket Sort w tym przypadku.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.95\textwidth,
+    height=6cm,
+    title={Czas wykonania algorytmów},
+    xlabel={Rozmiar danych [tysiące elementów]},
+    ylabel={Czas wykonania [sekundy]},
+    xmin=0, xmax=110,
+    ymin=0, ymax=0.1,
+    grid=major,
+    grid style={dashed,gray!30},
+    legend pos=north west,
+    legend style={font=\footnotesize},
+    tick label style={font=\small},
+    title style={font=\large}
+]
+\addplot[blue,very thick,mark=*,mark size=2] coordinates {(1,0)(5,0.001)(10,0.003)(20,0.006)(50,0.016)(100,0.028)};
+\addplot[red,very thick,mark=square*,mark size=2] coordinates {(1,0)(5,0.001)(10,0.002)(20,0.005)(50,0.014)(100,0.029)};
+\addplot[orange,very thick,mark=diamond*,mark size=2] coordinates {(1,0)(5,0.002)(10,0.002)(20,0.006)(50,0.017)(100,0.033)};
+\addplot[violet,very thick,mark=pentagon*,mark size=2] coordinates {(1,0)(5,0.001)(10,0.002)(20,0.003)(50,0.007)(100,0.015)};
+\legend{QuickSort Classic, QuickSort Dual-Pivot, Radix Sort (podstawa 10), Radix Sort (podstawa 256)}
+\end{axis}
+\end{tikzpicture}
+\caption{Porównanie czasów wykonania czterech najszybszych algorytmów. Radix Sort z podstawą 256 jest najszybszy dla dużych zbiorów danych. QuickSort obu wersji ma bardzo zbliżone czasy, co pokazuje, że dodatkowe porównania w Dual-Pivot nie mają dużego wpływu na ogólną wydajność. Wszystkie algorytmy pokazują wzrost zgodny z ich teoretyczną złożonością.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.95\textwidth,
+    height=6cm,
+    title={Liczba przypisań dla Radix Sort},
+    xlabel={Rozmiar danych [tysiące elementów]},
+    ylabel={Liczba przypisań (skala logarytmiczna)},
+    xmin=0, xmax=110,
+    ymode=log,
+    grid=major,
+    grid style={dashed,gray!30},
+    legend pos=north west,
+    legend style={font=\footnotesize},
+    tick label style={font=\small},
+    title style={font=\large}
+]
+\addplot[orange,very thick,mark=diamond*,mark size=2.5] coordinates {(1,18036)(5,90036)(10,180036)(20,440045)(50,1100045)(100,2200045)};
+\addplot[violet,very thick,mark=pentagon*,mark size=2.5] coordinates {(1,10510)(5,50510)(10,100510)(20,200510)(50,500510)(100,1000510)};
+\legend{Radix Sort (podstawa 10), Radix Sort (podstawa 256)}
+\end{axis}
+\end{tikzpicture}
+\caption{Różnica w liczbie przypisań między Radix Sort z podstawą 10 i 256. Dla podstawy 256 przypisań jest około 2.2 razy mniej, co wynika z faktu, że liczba ma mniej cyfr w systemie o większej podstawie. Każda iteracja Radix Sort wymaga przepisania całej tablicy, więc mniejsza liczba cyfr bezpośrednio przekłada się na mniejszą liczbę operacji.}
+\end{figure}
+
+\section*{5. Wnioski i podsumowanie}
+
+\subsection*{5.1 Charakterystyka poszczególnych algorytmów}
+
+\textbf{QuickSort Classic:}
+\begin{itemize}
+\item \textbf{Zalety:} Prostota implementacji, doskonała wydajność średniookresowa, niewielkie wymagania pamięciowe.
+\item \textbf{Wady:} $O(n^2)$ w najgorszym przypadku (choć rzadkim przy losowych danych), niestabilny.
+\item \textbf{Zastosowania:} Uniwersalny algorytm sortowania, domyślny wybór w wielu bibliotekach.
+\end{itemize}
+
+\textbf{QuickSort Dual-Pivot:}
+\begin{itemize}
+\item \textbf{Zalety:} Mniejsza liczba zamian niż w klasycznym QuickSort, często szybszy w praktyce, bardziej równomierny podział.
+\item \textbf{Wady:} Większa liczba porównań, bardziej złożona implementacja.
+\item \textbf{Zastosowania:} Tam gdzie operacje przypisania są kosztowne.
+\end{itemize}
+
+\textbf{Radix Sort:}
+\begin{itemize}
+\item \textbf{Zalety:} $O(n)$ czas dla liczb o ograniczonej liczbie cyfr, zerowa liczba porównań, stabilny.
+\item \textbf{Wady:} Wymaga dodatkowej pamięci, działa tylko na danych, które można reprezentować jako liczby.
+\item \textbf{Zastosowania:} Sortowanie dużych zbiorów liczb całkowitych, sortowanie stringów, zastosowania gdzie porównania są kosztowne.
+\end{itemize}
+
+\textbf{Bucket Sort:}
+\begin{itemize}
+\item \textbf{Zalety:} $O(n)$ średni czas dla równomiernie rozłożonych danych, prosty koncept.
+\item \textbf{Wady:} Zależny od rozkładu danych, wymaga dodatkowej pamięci na kubełki, $O(n^2)$ w najgorszym przypadku.
+\item \textbf{Zastosowania:} Dane z równomiernym rozkładem (np. liczby losowe z równomiernym rozkładem), sortowanie liczb zmiennoprzecinkowych.
+\end{itemize}
+
+\textbf{Insertion Sort na liście:}
+\begin{itemize}
+\item \textbf{Zalety:} Efektywny dla małych zbiorów i prawie posortowanych danych, stabilny.
+\item \textbf{Wady:} $O(n^2)$ złożoność czasowa, nieefektywny dla dużych zbiorów.
+\item \textbf{Zastosowania:} Sortowanie małych tablic/list.
+\end{itemize}
+
+\subsection*{5.2 Podsumowanie i najważniejsze obserwacje}
+
+Implementacja i testowanie różnych algorytmów sortowania pokazała, że nie ma jednego "najlepszego" algorytmu dla wszystkich przypadków. Każdy algorytm ma swoje mocne i słabe strony, a wybór powinien zależeć od charakterystyki danych, wymagań aplikacji oraz dostępnych zasobów.
+
+\textbf{Najważniejsze obserwacje z testów:}
+\begin{itemize}
+\item \textbf{Radix Sort z podstawą 256} okazał się \textbf{2.2 razy szybszy} niż z podstawą 10 dla 100000 elementów, co pokazuje jak kluczowy jest wybór odpowiedniej podstawy.
+
+\item \textbf{QuickSort Dual-Pivot} wykonuje \textbf{około 65\% więcej porównań} niż Classic, ale \textbf{10\% mniej przypisań}, co w praktyce daje bardzo zbliżone czasy wykonania.
+
+\item \textbf{Bucket Sort} był \textbf{3-4 razy wolniejszy} niż QuickSort w testach z losowymi danymi, co pokazuje jego wrażliwość na rozkład danych.
+
+\item \textbf{Insertion Sort} potwierdził swoją kwadratową złożoność - dla 50000 elementów wykonał \textbf{623 miliony porównań}, podczas gdy QuickSort Dual-Pivot tylko \textbf{1.5 miliona}.
+
+\item Wszystkie zaimplementowane algorytmy poprawnie obsługują liczby ujemne, co było jednym z wymagań.
+\end{itemize}
+
+\textbf{Dla typowych zastosowań:}
+\begin{itemize}
+\item \textbf{Dla liczb całkowitych:} \textbf{Radix Sort} z dużą podstawą (256) jest najszybszy.
+\item \textbf{Dla danych ogólnych:} \textbf{QuickSort} pozostaje najlepszym ogólnym wyborem dzięki doskonałej wydajności średniookresowej i prostocie implementacji.
+\item \textbf{Dla małych zbiorów:} \textbf{Insertion Sort} nadaje się doskonale jako algorytm pomocniczy lub do sortowania bardzo małych zbiorów.
+\item \textbf{Dla równomiernych danych:} \textbf{Bucket Sort} może być bardzo efektywny, ale wymaga znajomości rozkładu danych.
+\end{itemize}
+
+\end{document}
